@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{8996a81b-170c-4776-9f7f-bb3e2817ff22}</ItemsProjectGuid>
+    <ItemsRootNamespace>YuvRenderer</ItemsRootNamespace>
+    <ItemsProjectName>YuvRenderer.Shared</ItemsProjectName>
+    <CodeSharingProject>248F659F-DAC5-46E8-AC09-60EC9FC95053</CodeSharingProject>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)ID3DRenderTarget.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)pch.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)SurfaceImageSourceRenderTarget.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)SwapChainPanelRenderTarget.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvD3DRenderer.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShader.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvVertexShader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)SurfaceImageSourceRenderTarget.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)SwapChainPanelRenderTarget.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)YuvD3DRenderer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+</Project>

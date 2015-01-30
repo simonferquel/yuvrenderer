@@ -1,0 +1,18 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/src/Debug
+/src/ipch
+/src/packages
+/src/SampleApp/SampleApp.Windows/bin
+/src/SampleApp/SampleApp.Windows/obj
+/src/SampleApp/SampleApp.WindowsPhone/obj
+/src/x64/Debug/YuvRenderer.Windows
+/src/YuvRenderer/YuvRenderer.Windows/Debug
+/src/YuvRenderer/YuvRenderer.Windows/x64/Debug
+/src/YuvRenderer/YuvRenderer.WindowsPhone/Debug
+/src/YuvRendering.sln.ide
+*.opensdf
+*.sdf
+*.suo
