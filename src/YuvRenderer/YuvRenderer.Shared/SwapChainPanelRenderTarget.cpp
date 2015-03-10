@@ -3,24 +3,33 @@
 using namespace Microsoft::WRL;
 
 
-double scaleToPhysicalPixel(double logicalPixel) {
-	return  logicalPixel;
-}
 
 YuvRenderer::SwapChainPanelRenderTarget::SwapChainPanelRenderTarget(Windows::UI::Xaml::Controls::SwapChainPanel ^ panel)
 	:_panel(panel), _aspectRatio(static_cast<float>(panel->ActualWidth / panel->ActualHeight)),
-	_targetWidth(scaleToPhysicalPixel(panel->ActualWidth)),
-	_targetHeight(scaleToPhysicalPixel(panel->ActualHeight)),
+	_targetWidth((panel->ActualWidth* panel->CompositionScaleX)),
+	_targetHeight((panel->ActualHeight* panel->CompositionScaleY)),
+	_inverseCompositionScaleX(1.0f / panel->CompositionScaleX),
+	_inverseCompositionScaleY(1.0f / panel->CompositionScaleY),
 	_needResize(false),
 	_dispatcher(panel->Dispatcher)
 {
 	reinterpret_cast<IInspectable*>(panel)->QueryInterface<ISwapChainPanelNative>(&_panelNative);
 
 	_resizeToken = panel->SizeChanged += ref new Windows::UI::Xaml::SizeChangedEventHandler([this](Platform::Object^ o, Windows::UI::Xaml::SizeChangedEventArgs^ args) {
-		
-		_targetWidth = (uint32_t)scaleToPhysicalPixel(_panel->ActualWidth );
-		_targetHeight = (uint32_t)scaleToPhysicalPixel(_panel->ActualHeight);
 
+		_targetWidth = (uint32_t)(_panel->ActualWidth * _panel->CompositionScaleX);
+		_targetHeight = (uint32_t)(_panel->ActualHeight * _panel->CompositionScaleY);
+		_inverseCompositionScaleX = 1.0f / _panel->CompositionScaleX;
+		_inverseCompositionScaleY = 1.0f / _panel->CompositionScaleY;
+		_aspectRatio = static_cast<float>(_panel->ActualWidth / _panel->ActualHeight);
+		_needResize = true;
+	});
+	_compositionScaleToken = panel->CompositionScaleChanged += ref new Windows::Foundation::TypedEventHandler<Windows::UI::Xaml::Controls::SwapChainPanel^, Platform::Object^>([this](Windows::UI::Xaml::Controls::SwapChainPanel^ o, Platform::Object^ args) {
+
+		_targetWidth = (uint32_t)(_panel->ActualWidth * _panel->CompositionScaleX);
+		_targetHeight = (uint32_t)(_panel->ActualHeight * _panel->CompositionScaleY);
+		_inverseCompositionScaleX = 1.0f / _panel->CompositionScaleX;
+		_inverseCompositionScaleY = 1.0f / _panel->CompositionScaleY;
 		_aspectRatio = static_cast<float>(_panel->ActualWidth / _panel->ActualHeight);
 		_needResize = true;
 	});
@@ -32,14 +41,17 @@ YuvRenderer::SwapChainPanelRenderTarget::~SwapChainPanelRenderTarget()
 		auto panel = _panelNative;
 		auto xamlpanel = _panel;
 		auto resizeToken = _resizeToken;
-		concurrency::create_task(_dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, ref new Windows::UI::Core::DispatchedHandler([panel, xamlpanel, resizeToken]() {
+		auto scaleToken = _compositionScaleToken;
+		concurrency::create_task(_dispatcher->RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, ref new Windows::UI::Core::DispatchedHandler([panel, xamlpanel, resizeToken, scaleToken]() {
 			panel->SetSwapChain(nullptr);
 			xamlpanel->SizeChanged -= resizeToken;
+			xamlpanel->CompositionScaleChanged -= scaleToken;
 		}))).get();
 	}
 	else {
 		_panelNative->SetSwapChain(nullptr);
 		_panel->SizeChanged -= _resizeToken;
+		_panel->CompositionScaleChanged -= _compositionScaleToken;
 	}
 }
 
@@ -54,9 +66,9 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 	if (_knownDevice != device) {
 		_swapChain = nullptr;
 		_rtv = nullptr;
-		ComPtr<IDXGIFactory2> dxgiFactory;
-		ComPtr<IDXGIDevice2> dxgiDevice;
-		auto hr = device->QueryInterface(__uuidof(IDXGIDevice2), (void**)&dxgiDevice);
+		ComPtr<IDXGIFactory3> dxgiFactory;
+		ComPtr<IDXGIDevice3> dxgiDevice;
+		auto hr = device->QueryInterface(__uuidof(IDXGIDevice3), (void**)&dxgiDevice);
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
@@ -67,8 +79,8 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
-		ComPtr<IDXGIFactory2> pIDXGIFactory;
-		hr = pDXGIAdapter->GetParent(__uuidof(IDXGIFactory2), (void **)&pIDXGIFactory);
+		ComPtr<IDXGIFactory3> pIDXGIFactory;
+		hr = pDXGIAdapter->GetParent(__uuidof(IDXGIFactory3), (void **)&pIDXGIFactory);
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
@@ -87,10 +99,25 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 		swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
 		swapChainDesc.Flags = 0;
 
-		hr = pIDXGIFactory->CreateSwapChainForComposition(device, &swapChainDesc, nullptr, &_swapChain);
+		ComPtr<IDXGISwapChain1> swapChain1;
+
+		hr = pIDXGIFactory->CreateSwapChainForComposition(device, &swapChainDesc, nullptr, &swapChain1);
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
+
+		hr = swapChain1.As(&_swapChain);
+		if (FAILED(hr)) {
+			throw Platform::Exception::CreateException(hr);
+		};
+		_swapChain->SetMaximumFrameLatency(1);
+		DXGI_MATRIX_3X2_F inverseScale = { 0 };
+		inverseScale._11 = _inverseCompositionScaleX;
+		inverseScale._22 = _inverseCompositionScaleY;
+
+		_swapChain->SetMatrixTransform(&inverseScale);
+
+
 
 		ComPtr<ID3D11Texture2D> backBuffer;
 		hr = _swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
@@ -122,6 +149,11 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		}
+		DXGI_MATRIX_3X2_F inverseScale = { 0 };
+		inverseScale._11 = _inverseCompositionScaleX;
+		inverseScale._22 = _inverseCompositionScaleY;
+
+		_swapChain->SetMatrixTransform(&inverseScale);
 		ComPtr<ID3D11Texture2D> backBuffer;
 		hr = _swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
 		if (FAILED(hr)) {

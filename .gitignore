@@ -16,3 +16,9 @@
 *.opensdf
 *.sdf
 *.suo
+/src/.vs
+*.user
+/src/ARM
+/src/SampleApp/SampleApp.WindowsPhone/bin
+/src/YuvRenderer/YuvRenderer.Windows/ARM
+/src/YuvRenderer/YuvRenderer.WindowsPhone/ARM

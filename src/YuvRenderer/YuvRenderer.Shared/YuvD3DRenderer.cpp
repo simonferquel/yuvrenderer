@@ -247,6 +247,17 @@ void YuvRenderer::YuvD3DRenderer::Render(Windows::Storage::Streams::IBuffer ^ yd
 
 }
 
+void YuvRenderer::YuvD3DRenderer::TrimAndRelease()
+{
+	if (_deviceResources != nullptr) {
+		ComPtr<IDXGIDevice3> trimableDevice;
+		_deviceResources->_device.As(&trimableDevice);
+		trimableDevice->Trim();
+		_renderTarget->TrimAndRelease();
+		_deviceResources = nullptr;
+	}
+}
+
 YuvD3DRenderer^ YuvRenderer::YuvD3DRenderer::CreateForD3DImageSource(YuvColorMode colorMode, Windows::UI::Xaml::Media::Imaging::SurfaceImageSource ^ imageSource, std::uint32_t imgSourceWidth, std::uint32_t imgSourceHeight, std::uint32_t srcWidth, std::uint32_t srcHeight)
 {
 	return ref new YuvD3DRenderer(colorMode, srcWidth, srcHeight, std::make_unique< SurfaceImageSourceRenderTarget>(imageSource, imgSourceWidth, imgSourceHeight));
