@@ -14,15 +14,18 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)H264LiveDecoder.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)ID3DRenderTarget.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)pch.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)SurfaceImageSourceRenderTarget.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)SwapChainPanelRenderTarget.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvD3DRenderer.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShader.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShaderNV12.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvVertexShader.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)H264LiveDecoder.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

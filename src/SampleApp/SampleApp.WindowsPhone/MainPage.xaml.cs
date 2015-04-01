@@ -16,6 +16,7 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using Windows.Storage.Pickers;
 using Windows.Storage;
+using Windows.Storage.Streams;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234238
 
@@ -56,12 +57,39 @@ namespace SampleApp
 			renderer.Source = new Lumia.Imaging.StorageFileImageSource(file);
 			var bmp = await renderer.RenderAsync();
 			var surfaceImageSource = new SurfaceImageSource((int)bmp.Dimensions.Width, (int)bmp.Dimensions.Height);
-			var yuvRenderer = YuvRenderer.YuvD3DRenderer.CreateForSwapChainPanel(YuvRenderer.YuvColorMode.Yuv420P, root, (uint)bmp.Dimensions.Width, (uint)bmp.Dimensions.Height);
+			var yuvRenderer = YuvRenderer.YuvD3DRenderer.CreateForSwapChainPanel(root, (uint)bmp.Dimensions.Width, (uint)bmp.Dimensions.Height, YuvRenderer.StretchMode.Uniform);
 			Task.Run(() =>
 			{
+				// convert to nv12.
+				var yReader = DataReader.FromBuffer(bmp.Buffers[0].Buffer);
+				var uReader = DataReader.FromBuffer(bmp.Buffers[1].Buffer);
+				var vReader = DataReader.FromBuffer(bmp.Buffers[2].Buffer);
+				byte[] yData = new byte[bmp.Buffers[0].Buffer.Length];
+				byte[] uData = new byte[bmp.Buffers[1].Buffer.Length];
+				byte[] vData = new byte[bmp.Buffers[2].Buffer.Length];
+				yReader.ReadBytes(yData);
+				uReader.ReadBytes(uData);
+				vReader.ReadBytes(vData);
+				var height = (int)(bmp.Dimensions.Height);
+				var halfWidth = ((int)(bmp.Dimensions.Width)) / 2;
+				var halfHeight = height / 2;
+                var heightAndHalf = height + halfHeight;
+                var nv12Data = new byte[bmp.Buffers[0].Pitch * heightAndHalf];
+
+				Array.Copy(yData, nv12Data, yData.Length);
+				for (int y = 0; y < halfHeight; ++y)
+				{
+					var firstPixelOfRow = yData.Length + y * bmp.Buffers[0].Pitch;
+                    for (int x = 0; x < halfWidth; ++x)
+					{
+						nv12Data[x * 2 + firstPixelOfRow] = uData[y * bmp.Buffers[1].Pitch + x];
+						nv12Data[x * 2 + firstPixelOfRow +1] = vData[y * bmp.Buffers[2].Pitch + x];
+					}
+				}
+
 				while (true)
 				{
-					yuvRenderer.Render(bmp.Buffers[0].Buffer, bmp.Buffers[1].Buffer, bmp.Buffers[2].Buffer, bmp.Buffers[0].Pitch, bmp.Buffers[1].Pitch);
+					yuvRenderer.RenderNV12(nv12Data, bmp.Buffers[0].Pitch);
 				}
 			});
 		}
