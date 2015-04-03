@@ -10,6 +10,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)SwapChainPanelRenderTarget.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShaderNV12.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)H264LiveDecoder.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShaderNV12Expanded.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)pch.cpp">

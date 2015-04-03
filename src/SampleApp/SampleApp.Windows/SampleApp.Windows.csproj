@@ -130,9 +130,10 @@
     </Page>
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="YuvRenderer">
-      <HintPath>..\..\Debug\YuvRenderer.Windows\YuvRenderer.winmd</HintPath>
-    </Reference>
+    <ProjectReference Include="..\..\YuvRenderer\YuvRenderer.Windows\YuvRenderer.Windows.vcxproj">
+      <Project>{2a6d29e6-b739-4bd9-a1d3-eac1e9cfd2b9}</Project>
+      <Name>YuvRenderer.Windows</Name>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '12.0' ">
     <VisualStudioVersion>12.0</VisualStudioVersion>

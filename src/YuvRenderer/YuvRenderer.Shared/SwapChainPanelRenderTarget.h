@@ -4,6 +4,8 @@
 #include <atomic>
 #include <wrl.h>
 namespace YuvRenderer {
+
+	/// @brief render target to a swapchainpanel
 	class SwapChainPanelRenderTarget :
 		public YuvRenderer::ID3DRenderTarget
 	{

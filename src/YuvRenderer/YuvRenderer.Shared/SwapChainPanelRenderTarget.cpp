@@ -6,8 +6,8 @@ using namespace Microsoft::WRL;
 
 YuvRenderer::SwapChainPanelRenderTarget::SwapChainPanelRenderTarget(Windows::UI::Xaml::Controls::SwapChainPanel ^ panel)
 	:_panel(panel), _aspectRatio(static_cast<float>(panel->ActualWidth / panel->ActualHeight)),
-	_targetWidth((panel->ActualWidth* panel->CompositionScaleX)),
-	_targetHeight((panel->ActualHeight* panel->CompositionScaleY)),
+	_targetWidth(static_cast<float>(panel->ActualWidth* panel->CompositionScaleX)),
+	_targetHeight(static_cast<float>(panel->ActualHeight* panel->CompositionScaleY)),
 	_inverseCompositionScaleX(1.0f / panel->CompositionScaleX),
 	_inverseCompositionScaleY(1.0f / panel->CompositionScaleY),
 	_needResize(false),
@@ -17,8 +17,8 @@ YuvRenderer::SwapChainPanelRenderTarget::SwapChainPanelRenderTarget(Windows::UI:
 
 	_resizeToken = panel->SizeChanged += ref new Windows::UI::Xaml::SizeChangedEventHandler([this](Platform::Object^ o, Windows::UI::Xaml::SizeChangedEventArgs^ args) {
 
-		_targetWidth = (uint32_t)(_panel->ActualWidth * _panel->CompositionScaleX);
-		_targetHeight = (uint32_t)(_panel->ActualHeight * _panel->CompositionScaleY);
+		_targetWidth = (float)(_panel->ActualWidth * _panel->CompositionScaleX);
+		_targetHeight = (float)(_panel->ActualHeight * _panel->CompositionScaleY);
 		_inverseCompositionScaleX = 1.0f / _panel->CompositionScaleX;
 		_inverseCompositionScaleY = 1.0f / _panel->CompositionScaleY;
 		_aspectRatio = static_cast<float>(_panel->ActualWidth / _panel->ActualHeight);
@@ -26,8 +26,8 @@ YuvRenderer::SwapChainPanelRenderTarget::SwapChainPanelRenderTarget(Windows::UI:
 	});
 	_compositionScaleToken = panel->CompositionScaleChanged += ref new Windows::Foundation::TypedEventHandler<Windows::UI::Xaml::Controls::SwapChainPanel^, Platform::Object^>([this](Windows::UI::Xaml::Controls::SwapChainPanel^ o, Platform::Object^ args) {
 
-		_targetWidth = (uint32_t)(_panel->ActualWidth * _panel->CompositionScaleX);
-		_targetHeight = (uint32_t)(_panel->ActualHeight * _panel->CompositionScaleY);
+		_targetWidth = (float)(_panel->ActualWidth * _panel->CompositionScaleX);
+		_targetHeight = (float)(_panel->ActualHeight * _panel->CompositionScaleY);
 		_inverseCompositionScaleX = 1.0f / _panel->CompositionScaleX;
 		_inverseCompositionScaleY = 1.0f / _panel->CompositionScaleY;
 		_aspectRatio = static_cast<float>(_panel->ActualWidth / _panel->ActualHeight);
@@ -86,8 +86,8 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 		};
 
 		DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
-		swapChainDesc.Width = _targetWidth;
-		swapChainDesc.Height = _targetHeight;
+		swapChainDesc.Width = static_cast<UINT>(_targetWidth);
+		swapChainDesc.Height = static_cast<UINT>(_targetHeight);
 		swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 		swapChainDesc.Stereo = FALSE;
 		swapChainDesc.SampleDesc.Count = 1;
@@ -145,7 +145,7 @@ void YuvRenderer::SwapChainPanelRenderTarget::onBeginRender(ID3D11Device * devic
 		_needResize = false;
 		deviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 		_rtv = nullptr;
-		auto hr = _swapChain->ResizeBuffers(2, _targetWidth, _targetHeight, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+		auto hr = _swapChain->ResizeBuffers(2, static_cast<UINT>(_targetWidth), static_cast<UINT>(_targetHeight), DXGI_FORMAT_B8G8R8A8_UNORM, 0);
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		}

@@ -22,6 +22,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvD3DRenderer.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShader.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShaderNV12.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)YuvPixelShaderNV12Expanded.h" />
     <ClInclude Include="$(MSBuildThisFileDirectory)YuvVertexShader.h" />
   </ItemGroup>
   <ItemGroup>

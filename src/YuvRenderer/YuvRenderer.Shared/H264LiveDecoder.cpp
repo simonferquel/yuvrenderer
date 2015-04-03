@@ -86,36 +86,64 @@ YuvRenderer::H264LiveDecoder::H264LiveDecoder(YuvD3DRenderer ^ renderer) :
 	};
 }
 
+struct tex_and_subresource {
+	ComPtr<IMFSample> originSample;
+	ComPtr<ID3D11Texture2D> tex;
+	uint32 subresourceIndex;
+};
+
+tex_and_subresource fetchTexAndSubResource(const ComPtr<IMFSourceReader> reader) {
+	ComPtr<IMFSample> sample;
+	DWORD actualStreamIndex;
+	DWORD streamFlags;
+	long long timeStamp;
+	HRESULT hr;
+	hr = reader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, &actualStreamIndex, &streamFlags, &timeStamp, &sample);
+	if (!SUCCEEDED(hr)) {
+		tex_and_subresource res{nullptr, nullptr, 0 };
+		return res;
+	}
+	if (streamFlags & MF_SOURCE_READERF_ENDOFSTREAM) {
+		tex_and_subresource res{ nullptr, nullptr, 0 };
+		return res;
+	}
+
+
+	DWORD bufferCount;
+	hr = sample->GetBufferCount(&bufferCount);
+	ComPtr<IMFMediaBuffer> buffer;
+	hr = sample->GetBufferByIndex(0, &buffer);
+	ComPtr<IMFDXGIBuffer> dxgiBuffer;
+	hr = buffer.As(&dxgiBuffer);
+	ComPtr<ID3D11Texture2D> tex;
+	uint32 subResourceIndex;
+	dxgiBuffer->GetResource(__uuidof(ID3D11Texture2D), &tex);
+	dxgiBuffer->GetSubresourceIndex(&subResourceIndex);
+
+	tex_and_subresource res{ sample, tex, subResourceIndex };
+	return res;
+}
+
 void YuvRenderer::H264LiveDecoder::StartRenderingLoop()
 {
 	concurrency::create_task([this]() {
+		concurrency::task<tex_and_subresource> texAndSubResourceTask = concurrency::create_task(
+			[this]() {
+			return fetchTexAndSubResource(_mfSourceReader);
+		});
 		while (true) {
-			ComPtr<IMFSample> sample;
-			DWORD actualStreamIndex;
-			DWORD streamFlags;
-			long long timeStamp;
-			HRESULT hr;
-			hr = _mfSourceReader->ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, &actualStreamIndex, &streamFlags, &timeStamp, &sample);
-			if (!SUCCEEDED(hr)) {
 
+			auto res = texAndSubResourceTask.get();
+			if (res.tex == nullptr) {
 				return;
 			}
-			if (streamFlags & MF_SOURCE_READERF_ENDOFSTREAM) {
-				return;
-			}
+			// begin fetching next frame
+			texAndSubResourceTask = concurrency::create_task(
+				[this]() {
+				return fetchTexAndSubResource(_mfSourceReader);
+			});
 
-
-			DWORD bufferCount;
-			hr = sample->GetBufferCount(&bufferCount);
-			ComPtr<IMFMediaBuffer> buffer;
-			hr = sample->GetBufferByIndex(0, &buffer);
-			ComPtr<IMFDXGIBuffer> dxgiBuffer;
-			hr = buffer.As(&dxgiBuffer);
-			ComPtr<ID3D11Texture2D> tex;
-			uint32 subResourceIndex;
-			dxgiBuffer->GetResource(__uuidof(ID3D11Texture2D), &tex);
-			dxgiBuffer->GetSubresourceIndex(&subResourceIndex);
-			_renderer->RenderNV12(tex.Get(), subResourceIndex);
+			_renderer->RenderNV12(res.tex.Get(), res.subresourceIndex);
 		}
 	});
 }

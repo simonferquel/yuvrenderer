@@ -12,3 +12,4 @@
 *.user
 **/Debug/
 **/Release/
+/src/YuvRenderer/YuvRenderer.Shared/YuvPixelShaderNV12Expanded.hlsl

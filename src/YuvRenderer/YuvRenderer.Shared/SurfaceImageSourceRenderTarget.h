@@ -6,6 +6,7 @@
 #include <cstdint>
 
 namespace YuvRenderer  {
+	/// @brief Render target to a Surface Image Source
 	class SurfaceImageSourceRenderTarget :
 		public YuvRenderer::ID3DRenderTarget
 	{

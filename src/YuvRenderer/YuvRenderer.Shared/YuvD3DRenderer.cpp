@@ -4,6 +4,7 @@
 #include <DirectXMath.h>
 #include "YuvPixelShader.h"
 #include "YuvPixelShaderNV12.h"
+#include "YuvPixelShaderNV12Expanded.h"
 #include "YuvVertexShader.h"
 #include <robuffer.h>
 #include <SwapChainPanelRenderTarget.h>
@@ -160,7 +161,7 @@ struct YuvRenderer::YuvD3DRenderer::Yuv420PDeviceResources {
 
 
 
-		
+
 
 	}
 	void apply() {
@@ -198,6 +199,7 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 	ComPtr<ID3D11ShaderResourceView> _ytexSRV;
 	ComPtr<ID3D11ShaderResourceView> _uvtexSRV;
 	ComPtr<ID3D11SamplerState> _texSampler;
+	bool _needsUvExpandToRGBA;
 
 	NV12DeviceResources(std::uint32_t width, std::uint32_t height) {
 		UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT | D3D11_CREATE_DEVICE_VIDEO_SUPPORT;
@@ -243,11 +245,7 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 
 
 
-		hr = _device->CreatePixelShader(NV12_RENDER_PIXEL_SHADER, ARRAYSIZE(NV12_RENDER_PIXEL_SHADER), nullptr, &_ps);
-		if (FAILED(hr)) {
-			throw Platform::Exception::CreateException(hr);
-		};
-
+		
 		// init inputlayout
 
 		D3D11_INPUT_ELEMENT_DESC elements[] = {
@@ -299,11 +297,35 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 		nv12StatingTexDesc.Format = DXGI_FORMAT::DXGI_FORMAT_NV12;
 		nv12StatingTexDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 
-
+		UINT formatSupport = 0;
+		auto flagToCheck = D3D11_FORMAT_SUPPORT_TEXTURE2D | D3D11_FORMAT_SUPPORT_SHADER_SAMPLE;
+		hr = _device->CheckFormatSupport(DXGI_FORMAT_R8G8_UNORM, &formatSupport);
 		D3D11_TEXTURE2D_DESC uvTexDesc = yTexDesc;
-		uvTexDesc.Width = width / 2;
-		uvTexDesc.Height = height / 2;
-		uvTexDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8_UNORM;
+		if ((formatSupport&flagToCheck) == flagToCheck) {
+			uvTexDesc.Width = width / 2;
+			uvTexDesc.Height = height / 2;
+			uvTexDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8_UNORM;
+			_needsUvExpandToRGBA = false;
+		}
+		else {
+			uvTexDesc.Width = width / 2;
+			uvTexDesc.Height = height / 2;
+			uvTexDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+			_needsUvExpandToRGBA = true;
+		}
+		if (!_needsUvExpandToRGBA) {
+			hr = _device->CreatePixelShader(NV12_RENDER_PIXEL_SHADER, ARRAYSIZE(NV12_RENDER_PIXEL_SHADER), nullptr, &_ps);
+			if (FAILED(hr)) {
+				throw Platform::Exception::CreateException(hr);
+			};
+		}
+		else {
+			hr = _device->CreatePixelShader(NV12_RENDER_PIXEL_SHADER_EXPANDED, ARRAYSIZE(NV12_RENDER_PIXEL_SHADER_EXPANDED), nullptr, &_ps);
+			if (FAILED(hr)) {
+				throw Platform::Exception::CreateException(hr);
+			};
+		}
+
 
 		hr = _device->CreateTexture2D(&yTexDesc, nullptr, &_ytex);
 		if (FAILED(hr)) {
@@ -318,7 +340,7 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
-		
+
 		hr = _device->CreateShaderResourceView(_ytex.Get(), nullptr, &_ytexSRV);
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
@@ -327,7 +349,7 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 		if (FAILED(hr)) {
 			throw Platform::Exception::CreateException(hr);
 		};
-		
+
 
 
 
@@ -351,7 +373,7 @@ struct YuvRenderer::YuvD3DRenderer::NV12DeviceResources {
 	}
 };
 
-YuvRenderer::YuvD3DRenderer::YuvD3DRenderer( std::uint32_t srcWidth, std::uint32_t srcHeight, std::unique_ptr<ID3DRenderTarget>&& renderTarget, StretchMode stretchMode)
+YuvRenderer::YuvD3DRenderer::YuvD3DRenderer(std::uint32_t srcWidth, std::uint32_t srcHeight, std::unique_ptr<ID3DRenderTarget>&& renderTarget, StretchMode stretchMode)
 	: _renderTarget(std::move(renderTarget)),
 	_srcWidth(srcWidth),
 	_srcHeight(srcHeight),
@@ -373,7 +395,7 @@ void YuvRenderer::YuvD3DRenderer::RenderNV12(ID3D11Texture2D * tex, uint32 subRe
 		_nv12DeviceResources.reset(new NV12DeviceResources(_srcWidth, _srcHeight));
 	}
 	_nv12DeviceResources->_deviceContext->CopySubresourceRegion(_nv12DeviceResources->_nv12StagingTex.Get(), 0, 0, 0, 0, tex, subResourceIndex, nullptr);
-	
+
 	D3D11_MAPPED_SUBRESOURCE stagingMappedResource;
 	auto hr = _nv12DeviceResources->_deviceContext->Map(_nv12DeviceResources->_nv12StagingTex.Get(), 0, D3D11_MAP_READ, 0, &stagingMappedResource);
 	RenderNV12(Platform::ArrayReference<byte>((byte*)stagingMappedResource.pData, stagingMappedResource.RowPitch* (_srcHeight + _srcHeight / 2)), stagingMappedResource.RowPitch);
@@ -400,7 +422,7 @@ void fillFactors(StretchMode stretchMode, float factor, float aspectRatioFactorT
 		aspectRatioFactorToSource[0] = factor > 1 ? 1 / factor : 1.0f;
 		aspectRatioFactorToSource[1] = factor > 1 ? 1.0f : factor;
 		break;
-			
+
 	}
 }
 
@@ -495,8 +517,8 @@ void YuvRenderer::YuvD3DRenderer::RenderYuv420P(const Platform::Array<byte>^ yda
 		throw Platform::Exception::CreateException(hr);
 	};
 
-	
-	
+
+
 
 	for (uint32_t y = 0; y < _srcHeight; ++y) {
 		memcpy(static_cast<uint8_t*>(ytexMapped.pData) + (y*ytexMapped.RowPitch), ydata->Data + (y*yStride), _srcWidth);
@@ -557,14 +579,28 @@ void YuvRenderer::YuvD3DRenderer::RenderNV12(const Platform::Array<byte>^ data, 
 			memcpy(static_cast<uint8_t*>(ytexMapped.pData) + (y*ytexMapped.RowPitch), data->Data + (y*stride), _srcWidth);
 		}
 	}
-	if (uvtexMapped.RowPitch == stride) {
-		memcpy(static_cast<uint8_t*>(uvtexMapped.pData), data->Data+ stride * (_srcHeight), stride * (_srcHeight/2));
+	if (!_nv12DeviceResources->_needsUvExpandToRGBA && uvtexMapped.RowPitch == stride) {
+		memcpy(static_cast<uint8_t*>(uvtexMapped.pData), data->Data + stride * (_srcHeight), stride * (_srcHeight / 2));
 	}
+	else if (_nv12DeviceResources->_needsUvExpandToRGBA) {
+		auto outData = static_cast<uint8_t*>(uvtexMapped.pData);
+		auto srcWidth = _srcHeight;
+		auto srcHeight = _srcHeight;
+		concurrency::parallel_for(0u, _srcHeight / 2, [uvtexMapped,srcWidth, srcHeight, stride, data, outData](uint32_t y) {
+			auto outRowBase = (y*uvtexMapped.RowPitch);
+			auto sourceRowBase = ((srcHeight + y)*stride);
+			for (uint32_t x = 0; x < srcWidth / 2; ++x) {
+				memcpy(outData + outRowBase + x * 4, data->Data + sourceRowBase + x * 2, 2);
+			}
+		});
+	}
+
 	else {
 		for (uint32_t y = 0; y < _srcHeight / 2; ++y) {
 			memcpy(static_cast<uint8_t*>(uvtexMapped.pData) + (y*uvtexMapped.RowPitch), data->Data + ((_srcHeight + y)*stride), _srcWidth);
 		}
 	}
+
 
 	_nv12DeviceResources->_deviceContext->Unmap(_nv12DeviceResources->_uvtex.Get(), 0);
 	_nv12DeviceResources->_deviceContext->Unmap(_nv12DeviceResources->_ytex.Get(), 0);
@@ -598,11 +634,11 @@ void YuvRenderer::YuvD3DRenderer::TrimAndRelease()
 
 YuvD3DRenderer^ YuvRenderer::YuvD3DRenderer::CreateForD3DImageSource(Windows::UI::Xaml::Media::Imaging::SurfaceImageSource ^ imageSource, std::uint32_t imgSourceWidth, std::uint32_t imgSourceHeight, std::uint32_t srcWidth, std::uint32_t srcHeight, StretchMode stretchMode)
 {
-	return ref new YuvD3DRenderer( srcWidth, srcHeight, std::make_unique< SurfaceImageSourceRenderTarget>(imageSource, imgSourceWidth, imgSourceHeight), stretchMode);
+	return ref new YuvD3DRenderer(srcWidth, srcHeight, std::make_unique< SurfaceImageSourceRenderTarget>(imageSource, imgSourceWidth, imgSourceHeight), stretchMode);
 
 }
 
-YuvD3DRenderer ^ YuvRenderer::YuvD3DRenderer::CreateForSwapChainPanel( Windows::UI::Xaml::Controls::SwapChainPanel^ panel, std::uint32_t srcWidth, std::uint32_t srcHeight, StretchMode stretchMode)
+YuvD3DRenderer ^ YuvRenderer::YuvD3DRenderer::CreateForSwapChainPanel(Windows::UI::Xaml::Controls::SwapChainPanel^ panel, std::uint32_t srcWidth, std::uint32_t srcHeight, StretchMode stretchMode)
 {
 	return ref new YuvD3DRenderer(srcWidth, srcHeight, std::make_unique< SwapChainPanelRenderTarget>(panel), stretchMode);
 }
