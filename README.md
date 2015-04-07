@@ -4,6 +4,15 @@ This project provides a fast way to render YUV frames (coming from still images 
 It leverages the GPU to render frames in different YUV formats (for now, YUV420P and NV12 are supported, as they seem to be the most common output formats from JPEG/H264 decoders).
 It also provides an easy way to decode individual H264 frames using Media Foundation and DXVA (DirectX Video acceleration), in order to render video feeds coming from H264 encoders (like IP cameras, Drones, ...) with the lowest CPU overhead and the lowest latency as possible directly onto a xaml SwapchainPanel.
 
+## Platforms
+
+Both Windows 8.1 and Windows Phone 8.1 are supported.
+Live H264 decoding performance depends on 2 GPU related factors : level of support of DXVA, and support of the DXGI_FORMAT_R8G8_UNORM texture format.
+So, for example, in some micro benchmarks I've done, a Lumia 930 can sustain Full HD H264 decoding and rendering at native resolution at 60fps, where the Lumia 520 only renders at 15 fps on the same video.
+I will do further investigations on performance on low-end devices.
+
+Windows 10 support is also coming soon.
+
 ## Usage - YuvRendering
 
 The YuvRenderer can be created either on top of a SurfaceImageSource or on a SwapChainPanel:
