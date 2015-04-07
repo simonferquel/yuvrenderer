@@ -1,4 +1,4 @@
-# Yuv Tenderer for WinRT
+# Yuv Renderer for WinRT
 
 This project provides a fast way to render YUV frames (coming from still images or videos) in a WinRT Xaml app.
 It leverages the GPU to render frames in different YUV formats (for now, YUV420P and NV12 are supported, as they seem to be the most common output formats from JPEG/H264 decoders).
